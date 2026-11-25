@@ -1,5 +1,5 @@
-
-name: Build Kimo APK
+   
+name: Kimo APK Builder
 
 on:
   workflow_dispatch:
@@ -12,11 +12,10 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download Project
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Java
@@ -28,7 +27,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK
+      - name: Install Android SDK packages
         run: |
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
@@ -37,20 +36,29 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract Kimo ZIP
+      - name: Extract Android project
         run: |
-          mkdir project
-          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)"
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Kimo ZIP file not found"
+            echo "ERROR: Repository root mein ZIP file nahi mili."
             exit 1
           fi
-          echo "Found ZIP: $ZIP_FILE"
-          unzip -q "$ZIP_FILE" -d project
-          test -f project/settings.gradle.kts
-          test -f project/app/build.gradle.kts
 
-      - name: Add Android Dependencies
+          mkdir project
+          unzip -q "$ZIP_FILE" -d project
+
+          if [ ! -f project/settings.gradle.kts ]; then
+            echo "ERROR: ZIP ke andar Android project root nahi mila."
+            find project -maxdepth 3 -type f
+            exit 1
+          fi
+
+          if [ ! -f project/app/build.gradle.kts ]; then
+            echo "ERROR: app/build.gradle.kts nahi mili."
+            exit 1
+          fi
+
+      - name: Add AndroidX dependencies
         run: |
           cat >> project/app/build.gradle.kts <<'EOF'
 
@@ -60,14 +68,12 @@ jobs:
           }
           EOF
 
-      - name: Build Kimo
-        run: |
-          gradle -p project assembleDebug --no-daemon
+      - name: Build Debug APK
+        run: gradle -p project assembleDebug --no-daemon
 
-      - name: Upload Kimo APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Kimo-APK
           path: project/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          
+          if-no-files-found: 
