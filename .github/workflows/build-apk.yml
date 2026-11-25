@@ -1,0 +1,55 @@
+
+name: Build Kimo APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Kimo_Android_Project.zip'
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract Kimo
+        run: |
+          mkdir project
+          unzip Kimo_Android_Project.zip -d project
+
+      - name: Add AndroidX dependencies
+        run: |
+          cat >> project/app/build.gradle.kts <<'EOF'
+          dependencies {
+              implementation("androidx.activity:activity-ktx:1.9.3")
+              implementation("androidx.core:core-ktx:1.15.0")
+          }
+          EOF
+
+      - name: Build APK
+        run: gradle -p project assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kimo-APK
+          path: project/app/build/outputs/apk/debug/app-debug.apk
+          
