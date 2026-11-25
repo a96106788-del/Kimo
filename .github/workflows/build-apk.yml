@@ -4,19 +4,22 @@ name: Build Kimo APK
 on:
   workflow_dispatch:
   push:
-    paths:
-      - 'Kimo_Android_Project.zip'
-      - '.github/workflows/build-apk.yml'
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Download Project
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -25,21 +28,29 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK Packages
+      - name: Install SDK
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Extract Kimo Project
+      - name: Extract Kimo ZIP
         run: |
           mkdir project
-          unzip Kimo_Android_Project.zip -d project
+          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: Kimo ZIP file not found"
+            exit 1
+          fi
+          echo "Found ZIP: $ZIP_FILE"
+          unzip -q "$ZIP_FILE" -d project
+          test -f project/settings.gradle.kts
+          test -f project/app/build.gradle.kts
 
-      - name: Add AndroidX Dependencies
+      - name: Add Android Dependencies
         run: |
           cat >> project/app/build.gradle.kts <<'EOF'
 
@@ -49,8 +60,9 @@ jobs:
           }
           EOF
 
-      - name: Build Kimo APK
-        run: gradle -p project assembleDebug
+      - name: Build Kimo
+        run: |
+          gradle -p project assembleDebug --no-daemon
 
       - name: Upload Kimo APK
         uses: actions/upload-artifact@v4
