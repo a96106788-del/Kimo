@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -25,31 +25,37 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android SDK Packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Extract Kimo
+      - name: Extract Kimo Project
         run: |
           mkdir project
           unzip Kimo_Android_Project.zip -d project
 
-      - name: Add AndroidX dependencies
+      - name: Add AndroidX Dependencies
         run: |
           cat >> project/app/build.gradle.kts <<'EOF'
+
           dependencies {
               implementation("androidx.activity:activity-ktx:1.9.3")
               implementation("androidx.core:core-ktx:1.15.0")
           }
           EOF
 
-      - name: Build APK
+      - name: Build Kimo APK
         run: gradle -p project assembleDebug
 
-      - name: Upload APK
+      - name: Upload Kimo APK
         uses: actions/upload-artifact@v4
         with:
           name: Kimo-APK
           path: project/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           
